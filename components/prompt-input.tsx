@@ -12,9 +12,10 @@ import type { EvaluationResult } from "@/app/page"
 
 type PromptInputProps = {
   onComplete: (result: EvaluationResult) => void
+  stage: 1 | 2
 }
 
-export function PromptInput({ onComplete }: PromptInputProps) {
+export function PromptInput({ onComplete, stage }: PromptInputProps) {
   const [prompt, setPrompt] = useState("")
   const [goal, setGoal] = useState("")
   const [isLoadingGoal, setIsLoadingGoal] = useState(true)
@@ -97,16 +98,20 @@ export function PromptInput({ onComplete }: PromptInputProps) {
 
   useEffect(() => {
     fetchGoal()
-  }, [])
+  }, [stage]) // Refetch goal when stage changes
 
   const fetchGoal = async () => {
     try {
-      const response = await fetch("/api/goal")
+      const response = await fetch(`/api/goal?stage=${stage}`)
       const data = await response.json()
       setGoal(data.goal)
     } catch (error) {
       console.error("[v0] Error fetching goal:", error)
-      setGoal("Write a professional email to a client explaining a project delay")
+      setGoal(
+        stage === 1
+          ? "Write a professional email to a client explaining a project delay"
+          : "Write a comprehensive marketing strategy for a new product launch",
+      )
     } finally {
       setIsLoadingGoal(false)
     }
@@ -131,7 +136,9 @@ export function PromptInput({ onComplete }: PromptInputProps) {
   return (
     <Card className="mx-auto max-w-3xl">
       <CardHeader>
-        <CardTitle>{showProgress ? "Evaluating Your Prompt" : "Submit Your Prompt"}</CardTitle>
+        <CardTitle>
+          {showProgress ? `Evaluating Your Stage ${stage} Prompt` : `Submit Your Stage ${stage} Prompt`}
+        </CardTitle>
         <CardDescription>
           {showProgress
             ? "The AI is analyzing your prompt and filling in the grading boxes..."
@@ -140,7 +147,7 @@ export function PromptInput({ onComplete }: PromptInputProps) {
       </CardHeader>
       <CardContent>
         <div className="mb-6 rounded-lg border border-primary/20 bg-primary/5 p-4">
-          <p className="mb-1 text-sm font-semibold text-primary">Goal:</p>
+          <p className="mb-1 text-sm font-semibold text-primary">Stage {stage} Goal:</p>
           {isLoadingGoal ? (
             <p className="text-sm text-muted-foreground">Loading goal...</p>
           ) : (
@@ -163,7 +170,9 @@ export function PromptInput({ onComplete }: PromptInputProps) {
                 ) : (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 )}
-                {gradingState.clarity !== undefined && <span className="text-muted-foreground">({gradingState.clarity})</span>}
+                {gradingState.clarity !== undefined && (
+                  <span className="text-muted-foreground">({gradingState.clarity})</span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-sm">
                 {gradingState.specificity !== undefined ? (
@@ -196,7 +205,11 @@ export function PromptInput({ onComplete }: PromptInputProps) {
                 )}
               </div>
               <div className="flex items-center gap-2 text-sm">
-                {gradingState.feedback ? <span className="text-green-600">✓ Feedback</span> : <Loader2 className="h-3 w-3 animate-spin" />}
+                {gradingState.feedback ? (
+                  <span className="text-green-600">✓ Feedback</span>
+                ) : (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                )}
               </div>
               <div className="flex items-center gap-2 text-sm">
                 {gradingState.improvements ? (
@@ -204,7 +217,9 @@ export function PromptInput({ onComplete }: PromptInputProps) {
                 ) : (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 )}
-                {gradingState.improvements && <span className="text-muted-foreground">({gradingState.improvements.length})</span>}
+                {gradingState.improvements && (
+                  <span className="text-muted-foreground">({gradingState.improvements.length})</span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-sm">
                 {gradingState.improvedPrompt ? (

@@ -23,8 +23,14 @@ export type EvaluationResult = {
 
 export default function Home() {
   const [result, setResult] = useState<EvaluationResult | null>(null)
+  const [currentStage, setCurrentStage] = useState<1 | 2>(1)
 
   const handleReset = () => {
+    setResult(null)
+  }
+
+  const handleMoveToStage2 = () => {
+    setCurrentStage(2)
     setResult(null)
   }
 
@@ -39,9 +45,23 @@ export default function Home() {
             Evaluate your prompts for effectiveness, efficiency, and sustainability. Get AI-powered feedback and
             improvements.
           </p>
+          <div className="mt-4">
+            <span className="inline-flex items-center rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+              Stage {currentStage} of 2
+            </span>
+          </div>
         </div>
 
-        {!result ? <PromptInput onComplete={setResult} /> : <ResultsDashboard result={result} onReset={handleReset} />}
+        {!result ? (
+          <PromptInput onComplete={setResult} stage={currentStage} />
+        ) : (
+          <ResultsDashboard
+            result={result}
+            onReset={handleReset}
+            stage={currentStage}
+            onMoveToStage2={handleMoveToStage2}
+          />
+        )}
       </div>
     </main>
   )
