@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { AdminNav } from "@/components/admin-nav"
 
 type Submission = {
   id: string
@@ -74,6 +75,8 @@ export default function AnalyticsPage() {
     feedback.length > 0 ? (feedback.reduce((sum, f) => sum + f.rating, 0) / feedback.length).toFixed(1) : "0"
 
   return (
+    <>
+    <AdminNav />
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex items-center justify-between">
@@ -228,5 +231,6 @@ export default function AnalyticsPage() {
         </Card>
       </div>
     </div>
+  </>
   )
 }

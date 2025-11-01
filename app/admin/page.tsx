@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { AdminNav } from "@/components/admin-nav"
 
 export default function AdminPage() {
   const [goal, setGoal] = useState("")
@@ -57,8 +58,10 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+    <>
+      <AdminNav />
+      <main className="min-h-screen bg-background">
+        <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="mb-2 font-sans text-3xl font-bold tracking-tight text-foreground">Admin Panel</h1>
           <p className="text-muted-foreground">Set the prompt goal/task that students will work towards</p>
@@ -118,7 +121,8 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </main>
+        </div>
+      </main>
+    </>
   )
 }
