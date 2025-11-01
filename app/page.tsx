@@ -24,28 +24,7 @@ export type EvaluationResult = {
 
 export default function Home() {
   const [result, setResult] = useState<EvaluationResult | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [currentStage, setCurrentStage] = useState(1)
-
-  const handleEvaluate = async (prompt: string, targetOutput: string, userId: string) => {
-    setIsLoading(true)
-    try {
-      const response = await fetch("/api/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, targetOutput, userId, stage: currentStage }),
-      })
-
-      if (!response.ok) throw new Error("Evaluation failed")
-
-      const data = await response.json()
-      setResult(data)
-    } catch (error) {
-      console.error("Error evaluating prompt:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const handleReset = () => {
     setResult(null)
@@ -75,7 +54,7 @@ export default function Home() {
           </div>
 
           {!result ? (
-            <PromptInput onEvaluate={handleEvaluate} isLoading={isLoading} currentStage={currentStage} />
+            <PromptInput onComplete={setResult} currentStage={currentStage} />
           ) : (
             <ResultsDashboard
               result={result}

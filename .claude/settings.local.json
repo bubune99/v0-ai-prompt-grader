@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(.env)",
+      "Bash(node scripts/check-db.mjs:*)",
+      "Bash(pnpm install)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

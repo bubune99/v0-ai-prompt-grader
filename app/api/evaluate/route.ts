@@ -1,5 +1,5 @@
 import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { anthropic } from "@ai-sdk/anthropic"
 import { z } from "zod"
 import { sql } from "@/lib/db"
 
@@ -25,9 +25,9 @@ export async function POST(req: Request) {
       return Response.json({ error: "Prompt, target output, userId, and stage are required" }, { status: 400 })
     }
 
-    if (!process.env.OPENAI_API_KEY) {
-      console.error("[v0] OPENAI_API_KEY is not set")
-      return Response.json({ error: "OpenAI API key is not configured" }, { status: 500 })
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error("[v0] ANTHROPIC_API_KEY is not set")
+      return Response.json({ error: "Anthropic API key is not configured" }, { status: 500 })
     }
 
     // Check for active session
@@ -66,10 +66,9 @@ Be constructive and educational in your feedback.`
 
     try {
       const result = await generateObject({
-        model: openai("gpt-4o-mini"),
+        model: anthropic("claude-sonnet-4-20250514"),
         schema: evaluationSchema,
         prompt: evaluationPrompt,
-        mode: "json",
       })
 
       evaluation = result.object
