@@ -33,7 +33,7 @@ export function PromptInput({ onComplete, stage }: PromptInputProps) {
     improvedPrompt?: string
   }>({})
 
-  const { messages, append, isLoading } = useChat({
+  const { messages, sendMessage, status } = useChat({
     api: "/api/chat",
     body: {
       prompt: submittedPrompt,
@@ -123,12 +123,13 @@ export function PromptInput({ onComplete, stage }: PromptInputProps) {
       setSubmittedPrompt(prompt)
       setSubmittedGoal(goal)
       setGradingState({})
-      append({
-        role: "user",
-        content: "Evaluate this prompt.",
+      sendMessage({
+        text: "Evaluate this prompt.",
       })
     }
   }
+
+  const isLoading = status === "in_progress"
 
   // Show evaluation progress if we have started evaluating
   const showProgress = isLoading || messages.length > 0
