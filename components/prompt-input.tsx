@@ -40,7 +40,7 @@ export function PromptInput({ onComplete, currentStage }: PromptInputProps) {
     improvedPrompt?: string
   }>({})
 
-  const { messages, append, isLoading } = useChat({
+  const { messages, sendMessage, status } = useChat({
     api: "/api/chat",
     body: {
       prompt: submittedPrompt,
@@ -49,7 +49,8 @@ export function PromptInput({ onComplete, currentStage }: PromptInputProps) {
       stage: currentStage,
     },
     onToolCall: ({ toolCall }) => {
-      // Extract data from tool calls as they happen
+      console.log("[v0] Tool call received:", toolCall.toolName)
+
       if (toolCall.toolName === "fillClarityScore") {
         setGradingState((prev) => ({ ...prev, clarity: toolCall.args.score }))
       } else if (toolCall.toolName === "fillSpecificityScore") {
@@ -65,8 +66,12 @@ export function PromptInput({ onComplete, currentStage }: PromptInputProps) {
       } else if (toolCall.toolName === "fillImprovedPrompt") {
         setGradingState((prev) => ({ ...prev, improvedPrompt: toolCall.args.improvedPrompt }))
       } else if (toolCall.toolName === "completeEvaluation") {
-        // Evaluation is complete, compile results
-        const state = toolCall.result?.gradingState || gradingState
+        console.log("[v0] Evaluation complete, compiling results...")
+
+        const state = gradingState
+
+        console.log("[v0] Grading state:", state)
+
         if (
           state.effectivenessScore !== undefined &&
           state.clarity !== undefined &&
@@ -76,7 +81,6 @@ export function PromptInput({ onComplete, currentStage }: PromptInputProps) {
           state.improvements &&
           state.improvedPrompt
         ) {
-          // Calculate approximate token usage
           const totalContent = messages.map((m) => m.content).join(" ")
           const estimatedTokens = Math.ceil(totalContent.length / 4)
           const estimatedCO2 = Number.parseFloat((estimatedTokens * 0.0004).toFixed(2))
@@ -99,7 +103,10 @@ export function PromptInput({ onComplete, currentStage }: PromptInputProps) {
             improvements: state.improvements,
           }
 
+          console.log("[v0] Calling onComplete with result:", result)
           onComplete(result)
+        } else {
+          console.error("[v0] Missing required fields in grading state:", state)
         }
       }
     },
@@ -152,12 +159,13 @@ export function PromptInput({ onComplete, currentStage }: PromptInputProps) {
       setSubmittedPrompt(prompt)
       setSubmittedGoal(goal)
       setGradingState({})
-      append({
-        role: "user",
-        content: "Evaluate this prompt.",
+      sendMessage({
+        text: "Evaluate this prompt.",
       })
     }
   }
+
+  const isLoading = status === "in_progress"
 
   return (
     <Card className="mx-auto max-w-3xl">

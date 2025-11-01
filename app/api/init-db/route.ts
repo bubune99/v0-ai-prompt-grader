@@ -50,6 +50,20 @@ export async function POST() {
       CREATE INDEX IF NOT EXISTS idx_submissions_user_id ON submissions(user_id)
     `
 
+    await sql`
+      CREATE TABLE IF NOT EXISTS session_feedback (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `
+
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_session_feedback_user_id ON session_feedback(user_id)
+    `
+
     console.log("[v0] Tables created successfully")
 
     // Check if default session exists

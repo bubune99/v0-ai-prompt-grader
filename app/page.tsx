@@ -27,13 +27,22 @@ export default function Home() {
   const [currentStage, setCurrentStage] = useState(1)
 
   const handleReset = () => {
+    console.log("[v0] Resetting to prompt input view")
     setResult(null)
   }
 
   const handleNextStage = () => {
+    console.log("[v0] Moving to stage 2")
     setCurrentStage(2)
     setResult(null)
   }
+
+  const handleComplete = (evaluationResult: EvaluationResult) => {
+    console.log("[v0] Evaluation complete, switching to results view")
+    setResult(evaluationResult)
+  }
+
+  console.log("[v0] Current view:", result ? "Results Dashboard" : "Prompt Input")
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -54,7 +63,7 @@ export default function Home() {
           </div>
 
           {!result ? (
-            <PromptInput onComplete={setResult} currentStage={currentStage} />
+            <PromptInput onComplete={handleComplete} currentStage={currentStage} />
           ) : (
             <ResultsDashboard
               result={result}

@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { SessionFeedback } from "@/components/session-feedback"
 import type { EvaluationResult } from "@/app/page"
 
 type ResultsDashboardProps = {
@@ -17,6 +18,7 @@ type ResultsDashboardProps = {
 export function ResultsDashboard({ result, onReset, currentStage, onNextStage }: ResultsDashboardProps) {
   const [userRating, setUserRating] = useState<number | null>(null)
   const [hasRated, setHasRated] = useState(false)
+  const [showSessionFeedback, setShowSessionFeedback] = useState(false)
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-accent"
@@ -47,6 +49,30 @@ export function ResultsDashboard({ result, onReset, currentStage, onNextStage }:
     } catch (error) {
       console.error("[v0] Failed to save rating:", error)
     }
+  }
+
+  useEffect(() => {
+    if (currentStage === 2 && hasRated) {
+      setShowSessionFeedback(true)
+    }
+  }, [currentStage, hasRated])
+
+  const handleSessionFeedbackComplete = () => {
+    setShowSessionFeedback(false)
+  }
+
+  if (showSessionFeedback) {
+    return (
+      <div className="space-y-6">
+        <SessionFeedback onSubmit={handleSessionFeedbackComplete} />
+        <div className="flex justify-center pt-4">
+          <Button onClick={onReset} size="lg" variant="outline" className="gap-2 bg-transparent">
+            <span>↻</span>
+            Start New Session
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (

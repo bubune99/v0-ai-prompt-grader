@@ -33,6 +33,14 @@ type UserProgress = {
   stage2Submissions: number
 }
 
+type SessionFeedback = {
+  id: number
+  userId: string
+  rating: number
+  message: string | null
+  timestamp: string
+}
+
 export default function AnalyticsPage() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session")
@@ -40,6 +48,7 @@ export default function AnalyticsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
   const [sessionName, setSessionName] = useState<string | null>(null)
+  const [sessionFeedback, setSessionFeedback] = useState<SessionFeedback[]>([])
 
   const fetchSubmissions = async () => {
     try {
@@ -55,6 +64,10 @@ export default function AnalyticsPage() {
         const session = sessionData.sessions.find((s: any) => s.id === Number(sessionId))
         setSessionName(session?.name || null)
       }
+
+      const feedbackResponse = await fetch("/api/feedback")
+      const feedbackData = await feedbackResponse.json()
+      setSessionFeedback(feedbackData.feedback || [])
     } catch (error) {
       console.error("[v0] Error fetching submissions:", error)
     } finally {
@@ -145,6 +158,11 @@ export default function AnalyticsPage() {
       ? (ratedSubmissions.reduce((sum, s) => sum + (s.userRating || 0), 0) / ratedSubmissions.length).toFixed(1)
       : "0"
 
+  const avgSessionRating =
+    sessionFeedback.length > 0
+      ? (sessionFeedback.reduce((sum, f) => sum + f.rating, 0) / sessionFeedback.length).toFixed(1)
+      : "0"
+
   return (
     <div className="min-h-screen flex flex-col">
       <AdminNav />
@@ -210,11 +228,21 @@ export default function AnalyticsPage() {
 
             <Card className="border-yellow-200 bg-yellow-50">
               <CardHeader className="pb-2">
-                <CardDescription>Avg User Rating</CardDescription>
+                <CardDescription>Avg Eval Rating</CardDescription>
                 <CardTitle className="text-3xl text-yellow-700">{avgUserRating} ⭐</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <p className="text-xs text-slate-600">{ratedSubmissions.length} ratings</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-purple-200 bg-purple-50">
+              <CardHeader className="pb-2">
+                <CardDescription>Session Rating</CardDescription>
+                <CardTitle className="text-3xl text-purple-700">{avgSessionRating} ⭐</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-xs text-slate-600">{sessionFeedback.length} responses</p>
               </CardContent>
             </Card>
           </div>
@@ -368,6 +396,37 @@ export default function AnalyticsPage() {
                         ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Session Feedback</CardTitle>
+              <CardDescription>Overall workshop feedback from participants</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="py-8 text-center text-slate-500">Loading feedback...</div>
+              ) : sessionFeedback.length === 0 ? (
+                <div className="py-8 text-center text-slate-500">No session feedback yet</div>
+              ) : (
+                <div className="space-y-4">
+                  {sessionFeedback.map((feedback) => (
+                    <div key={feedback.id} className="rounded-lg border bg-card p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-slate-700">
+                            {userDisplayNames.get(feedback.userId) || "Anonymous"}
+                          </span>
+                          <span className="text-yellow-600 font-medium">{feedback.rating} ⭐</span>
+                        </div>
+                        <span className="text-xs text-slate-500">{new Date(feedback.timestamp).toLocaleString()}</span>
+                      </div>
+                      {feedback.message && <p className="text-sm text-slate-600 leading-relaxed">{feedback.message}</p>}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
