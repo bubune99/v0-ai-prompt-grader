@@ -1,22 +1,23 @@
-// In-memory storage for the goal (in production, use a database)
-let currentGoal = "Write a professional email to a client explaining a project delay"
+// In-memory storage for goals (in production, use a database)
+const goals = {
+  stage1: "Write a professional email to a client explaining a project delay",
+  stage2: "Write a professional email to a client explaining a project delay",
+}
 
 export async function GET() {
-  return Response.json({ goal: currentGoal })
+  return Response.json({ goals })
 }
 
 export async function POST(req: Request) {
   try {
-    const { goal } = await req.json()
+    const { stage1, stage2 } = await req.json()
 
-    if (!goal || typeof goal !== "string") {
-      return Response.json({ error: "Goal is required and must be a string" }, { status: 400 })
-    }
+    if (stage1) goals.stage1 = stage1
+    if (stage2) goals.stage2 = stage2
 
-    currentGoal = goal
-    return Response.json({ goal: currentGoal, success: true })
+    return Response.json({ goals, success: true })
   } catch (error) {
-    console.error("[v0] Error updating goal:", error)
-    return Response.json({ error: "Failed to update goal" }, { status: 500 })
+    console.error("[v0] Error updating goals:", error)
+    return Response.json({ error: "Failed to update goals" }, { status: 500 })
   }
 }

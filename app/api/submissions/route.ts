@@ -1,52 +1,84 @@
-// API route to store and retrieve prompt submissions
+import { type NextRequest, NextResponse } from "next/server"
+import { sql } from "@/lib/db"
 
-type Submission = {
-  id: string
-  timestamp: string
-  prompt: string
-  targetOutput: string
-  effectivenessScore: number
-  clarity: number
-  specificity: number
-  efficiency: number
-  tokens: number
-  estimatedCO2: number
-}
-
-// In-memory store for submissions
-let submissions: Submission[] = []
-
-export async function GET() {
-  return Response.json({ submissions })
-}
-
-export async function POST(req: Request) {
+// GET all submissions, optionally filtered by session
+export async function GET(request: NextRequest) {
   try {
-    const data = await req.json()
+    const { searchParams } = new URL(request.url)
+    const sessionId = searchParams.get("session") || searchParams.get("sessionId")
 
-    const submission: Submission = {
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      prompt: data.prompt,
-      targetOutput: data.targetOutput,
-      effectivenessScore: data.effectivenessScore,
-      clarity: data.clarity,
-      specificity: data.specificity,
-      efficiency: data.efficiency,
-      tokens: data.tokens,
-      estimatedCO2: data.estimatedCO2,
+    let submissions
+    if (sessionId) {
+      submissions = await sql`
+        SELECT * FROM submissions 
+        WHERE session_id = ${sessionId}
+        ORDER BY created_at DESC
+      `
+    } else {
+      submissions = await sql`
+        SELECT * FROM submissions 
+        ORDER BY created_at DESC
+      `
     }
 
-    submissions.push(submission)
+    const formattedSubmissions = submissions.map((sub: any) => ({
+      id: sub.id,
+      timestamp: sub.created_at,
+      userId: sub.user_id,
+      stage: sub.stage,
+      prompt: sub.prompt,
+      targetOutput: sub.goal,
+      effectivenessScore: sub.effectiveness_score,
+      clarity: sub.clarity_score,
+      specificity: sub.specificity_score,
+      efficiency: sub.efficiency_score,
+      tokens: sub.token_count,
+      estimatedCO2: Number.parseFloat(sub.co2_grams),
+      feedback: sub.feedback,
+      improvedPrompt: sub.improved_prompt,
+      userRating: sub.user_rating,
+    }))
 
-    // Keep only last 100 submissions to prevent memory issues
-    if (submissions.length > 100) {
-      submissions = submissions.slice(-100)
+    return NextResponse.json({ submissions: formattedSubmissions })
+  } catch (error) {
+    console.error("[v0] Error fetching submissions:", error)
+    return NextResponse.json({ error: "Failed to fetch submissions" }, { status: 500 })
+  }
+}
+
+// POST create new submission
+export async function POST(request: NextRequest) {
+  try {
+    const data = await request.json()
+
+    // Get the active session
+    const activeSession = await sql`
+      SELECT id FROM sessions WHERE is_open = true ORDER BY created_at DESC LIMIT 1
+    `
+
+    if (activeSession.length === 0) {
+      return NextResponse.json({ error: "No active session available" }, { status: 400 })
     }
 
-    return Response.json({ success: true })
+    const sessionId = activeSession[0].id
+
+    await sql`
+      INSERT INTO submissions (
+        session_id, user_id, stage, prompt, goal,
+        overall_score, clarity_score, specificity_score, 
+        efficiency_score, effectiveness_score,
+        token_count, co2_grams, feedback, improved_prompt
+      ) VALUES (
+        ${sessionId}, ${data.userId}, ${data.stage}, ${data.prompt}, ${data.targetOutput},
+        ${data.effectivenessScore}, ${data.clarity}, ${data.specificity},
+        ${data.efficiency}, ${data.effectivenessScore},
+        ${data.tokens}, ${data.estimatedCO2}, ${data.feedback || ""}, ${data.improvedPrompt || ""}
+      )
+    `
+
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[v0] Error saving submission:", error)
-    return Response.json({ error: "Failed to save submission" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to save submission" }, { status: 500 })
   }
 }
