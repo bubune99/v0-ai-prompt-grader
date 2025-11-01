@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { PromptInput } from "@/components/prompt-input"
 import { ResultsDashboard } from "@/components/results-dashboard"
+import { Footer } from "@/components/footer"
 
 export type EvaluationResult = {
   originalPrompt: string
@@ -23,46 +24,69 @@ export type EvaluationResult = {
 
 export default function Home() {
   const [result, setResult] = useState<EvaluationResult | null>(null)
-  const [currentStage, setCurrentStage] = useState<1 | 2>(1)
+  const [isLoading, setIsLoading] = useState(false)
+  const [currentStage, setCurrentStage] = useState(1)
+
+  const handleEvaluate = async (prompt: string, targetOutput: string, userId: string) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch("/api/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, targetOutput, userId, stage: currentStage }),
+      })
+
+      if (!response.ok) throw new Error("Evaluation failed")
+
+      const data = await response.json()
+      setResult(data)
+    } catch (error) {
+      console.error("Error evaluating prompt:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleReset = () => {
     setResult(null)
   }
 
-  const handleMoveToStage2 = () => {
+  const handleNextStage = () => {
     setCurrentStage(2)
     setResult(null)
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-12 text-center">
-          <h1 className="mb-3 font-sans text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Prompt Grader
-          </h1>
-          <p className="mx-auto max-w-2xl text-pretty text-lg text-muted-foreground">
-            Evaluate your prompts for effectiveness, efficiency, and sustainability. Get AI-powered feedback and
-            improvements.
-          </p>
-          <div className="mt-4">
-            <span className="inline-flex items-center rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-              Stage {currentStage} of 2
-            </span>
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-1 bg-background">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="mb-12 text-center">
+            <h1 className="mb-3 font-sans text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+              Prompt Grader
+            </h1>
+            <p className="mx-auto max-w-2xl text-pretty text-lg text-muted-foreground">
+              Evaluate your prompts for effectiveness, efficiency, and sustainability. Get AI-powered feedback and
+              improvements.
+            </p>
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2">
+              <span className="text-sm font-semibold text-primary">Stage {currentStage}</span>
+              {currentStage === 2 && <span className="text-xs text-muted-foreground">(Post-Workshop)</span>}
+            </div>
           </div>
-        </div>
 
-        {!result ? (
-          <PromptInput onComplete={setResult} stage={currentStage} />
-        ) : (
-          <ResultsDashboard
-            result={result}
-            onReset={handleReset}
-            stage={currentStage}
-            onMoveToStage2={handleMoveToStage2}
-          />
-        )}
-      </div>
-    </main>
+          {!result ? (
+            <PromptInput onEvaluate={handleEvaluate} isLoading={isLoading} currentStage={currentStage} />
+          ) : (
+            <ResultsDashboard
+              result={result}
+              onReset={handleReset}
+              currentStage={currentStage}
+              onNextStage={currentStage === 1 ? handleNextStage : undefined}
+            />
+          )}
+        </div>
+      </main>
+      <Footer />
+    </div>
   )
 }

@@ -1,3 +1,4 @@
+import { Footer } from "@/components/footer"
 import Link from "next/link"
 
 export default function TermsPage() {
@@ -97,6 +98,7 @@ export default function TermsPage() {
           <p className="text-sm text-muted-foreground mt-8">Last updated: {new Date().toLocaleDateString()}</p>
         </div>
       </div>
+      <Footer />
     </div>
   )
 }

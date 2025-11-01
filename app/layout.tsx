@@ -1,16 +1,16 @@
-import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
-import { Footer } from '@/components/footer'
-import './globals.css'
+import type React from "react"
+import type { Metadata } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
+import "./globals.css"
+import { CookieBanner } from "@/components/cookie-banner"
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const _geist = Geist({ subsets: ["latin"] })
+const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'AI Prompt Grader',
-  description: 'Evaluate your prompts for effectiveness, efficiency, and sustainability',
-  generator: 'v0.app',
+  title: "AI Prompt Grader",
+  description: "Evaluate and improve your AI prompts with detailed feedback and sustainability metrics",
+  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -20,10 +20,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased flex flex-col min-h-screen`}>
+      <body className={`font-sans antialiased`}>
         {children}
-        <Footer />
-        <Analytics />
+        <CookieBanner />
       </body>
     </html>
   )

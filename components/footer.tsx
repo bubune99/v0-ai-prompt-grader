@@ -15,10 +15,7 @@ export function Footer() {
             >
               Privacy Policy
             </Link>
-            <Link
-              href="/terms"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Terms & Conditions
             </Link>
           </nav>

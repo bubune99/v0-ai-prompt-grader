@@ -4,21 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { SessionFeedback } from "@/components/session-feedback"
 import type { EvaluationResult } from "@/app/page"
-import { useState } from "react"
 
 type ResultsDashboardProps = {
   result: EvaluationResult
   onReset: () => void
-  stage: 1 | 2
-  onMoveToStage2: () => void
+  currentStage: number
+  onNextStage?: () => void
 }
 
-export function ResultsDashboard({ result, onReset, stage, onMoveToStage2 }: ResultsDashboardProps) {
-  const [showFeedback, setShowFeedback] = useState(false)
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
-
+export function ResultsDashboard({ result, onReset, currentStage, onNextStage }: ResultsDashboardProps) {
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-accent"
     if (score >= 60) return "text-chart-3"
@@ -30,10 +25,6 @@ export function ResultsDashboard({ result, onReset, stage, onMoveToStage2 }: Res
     if (score >= 60) return "Good"
     if (score >= 40) return "Fair"
     return "Needs Improvement"
-  }
-
-  const handleFeedbackSubmit = () => {
-    setFeedbackSubmitted(true)
   }
 
   return (
@@ -182,47 +173,15 @@ export function ResultsDashboard({ result, onReset, stage, onMoveToStage2 }: Res
         </CardContent>
       </Card>
 
-      {/* Session Feedback */}
-      {stage === 2 && (
-        <>
-          {showFeedback ? (
-            <SessionFeedback onSubmit={handleFeedbackSubmit} />
-          ) : (
-            !feedbackSubmitted && (
-              <Card className="border-2 border-muted">
-                <CardContent className="pt-6">
-                  <div className="text-center space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Help us improve! Share your thoughts about this evaluation session.
-                    </p>
-                    <Button onClick={() => setShowFeedback(true)} variant="outline" size="lg">
-                      Provide Session Feedback
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          )}
-        </>
-      )}
-
-      {/* Buttons based on stage */}
-      <div className="flex justify-center gap-4 pt-4">
-        {stage === 1 ? (
-          <>
-            <Button onClick={onReset} size="lg" variant="outline" className="gap-2 bg-transparent">
-              <span>↻</span>
-              Try Again
-            </Button>
-            <Button onClick={onMoveToStage2} size="lg" className="gap-2">
-              <span>→</span>
-              Continue to Stage 2
-            </Button>
-          </>
-        ) : (
-          <Button onClick={onReset} size="lg" variant="outline" className="gap-2 bg-transparent">
-            <span>↻</span>
-            Try Another Prompt
+      <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-center">
+        <Button onClick={onReset} size="lg" variant="outline" className="gap-2 bg-transparent">
+          <span>↻</span>
+          Try Another Prompt
+        </Button>
+        {onNextStage && currentStage === 1 && (
+          <Button onClick={onNextStage} size="lg" className="gap-2">
+            <span>→</span>
+            Continue to Stage 2
           </Button>
         )}
       </div>

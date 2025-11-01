@@ -1,24 +1,72 @@
-import { generateText } from "ai"
+import { generateObject, tool } from "ai"
+import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
+import { sql } from "@/lib/db"
 
 export const maxDuration = 30
 
 const evaluationSchema = z.object({
-  effectivenessScore: z.number().min(0).max(100),
-  clarity: z.number().min(0).max(100),
-  specificity: z.number().min(0).max(100),
-  efficiency: z.number().min(0).max(100),
-  feedback: z.string(),
-  improvements: z.array(z.string()),
-  improvedPrompt: z.string(),
+  effectivenessScore: z.number().min(0).max(100).describe("Overall effectiveness of the prompt in achieving the goal"),
+  clarity: z.number().min(0).max(100).describe("How clear and unambiguous the prompt is"),
+  specificity: z.number().min(0).max(100).describe("How specific and detailed the prompt is"),
+  efficiency: z.number().min(0).max(100).describe("How concise yet complete the prompt is"),
+  feedback: z.string().describe("Detailed feedback explaining strengths and weaknesses"),
+  improvements: z.array(z.string()).describe("3-5 specific improvements that could be made"),
+  improvedPrompt: z.string().describe("An improved version of the prompt"),
+})
+
+const saveEvaluationTool = tool({
+  description: "Save the prompt evaluation results to the database",
+  inputSchema: z.object({
+    sessionId: z.number(),
+    userId: z.string(),
+    stage: z.number(),
+    prompt: z.string(),
+    goal: z.string(),
+    evaluation: evaluationSchema,
+    tokenCount: z.number(),
+    co2Grams: z.number(),
+  }),
+  async execute({ sessionId, userId, stage, prompt, goal, evaluation, tokenCount, co2Grams }) {
+    try {
+      await sql`
+        INSERT INTO submissions (
+          session_id, user_id, stage, prompt, goal,
+          overall_score, clarity_score, specificity_score, 
+          efficiency_score, effectiveness_score,
+          token_count, co2_grams, feedback, improved_prompt
+        ) VALUES (
+          ${sessionId}, ${userId}, ${stage}, ${prompt}, ${goal},
+          ${evaluation.effectivenessScore}, ${evaluation.clarity}, ${evaluation.specificity},
+          ${evaluation.efficiency}, ${evaluation.effectivenessScore},
+          ${tokenCount}, ${co2Grams}, ${evaluation.feedback}, ${evaluation.improvedPrompt}
+        )
+      `
+      return { success: true, message: "Evaluation saved successfully" }
+    } catch (error) {
+      console.error("[v0] Failed to save evaluation:", error)
+      return { success: false, message: "Failed to save evaluation" }
+    }
+  },
 })
 
 export async function POST(req: Request) {
   try {
-    const { prompt, targetOutput } = await req.json()
+    const { prompt, targetOutput, userId, stage } = await req.json()
 
-    if (!prompt || !targetOutput) {
-      return Response.json({ error: "Prompt and target output are required" }, { status: 400 })
+    console.log("[v0] Evaluating prompt:", { prompt, targetOutput, userId, stage })
+
+    if (!prompt || !targetOutput || !userId || !stage) {
+      return Response.json({ error: "Prompt, target output, userId, and stage are required" }, { status: 400 })
+    }
+
+    // Check for active session
+    const activeSession = await sql`
+      SELECT id, is_open FROM sessions WHERE is_open = true ORDER BY created_at DESC LIMIT 1
+    `
+
+    if (activeSession.length === 0 || !activeSession[0].is_open) {
+      return Response.json({ error: "No active session. Submissions are currently closed." }, { status: 403 })
     }
 
     const evaluationPrompt = `You are an expert prompt engineer. Evaluate the following prompt based on how well it would achieve the specified goal.
@@ -43,41 +91,40 @@ Provide:
 
 Be constructive and educational in your feedback.`
 
-    const { text, usage } = await generateText({
-      model: "openai/gpt-4o",
+    const { object: evaluation, usage } = await generateObject({
+      model: openai("gpt-4o"),
+      schema: evaluationSchema,
       prompt: evaluationPrompt,
       maxOutputTokens: 2000,
       temperature: 0.7,
     })
 
-    // Parse the AI response to extract structured data
-    const structuredPrompt = `Extract the evaluation metrics from this analysis and return them in JSON format:
-
-${text}
-
-Return a JSON object with:
-- effectivenessScore (number 0-100)
-- clarity (number 0-100)
-- specificity (number 0-100)
-- efficiency (number 0-100)
-- feedback (string with detailed explanation)
-- improvements (array of 3-5 improvement suggestions)
-- improvedPrompt (the improved version of the prompt)`
-
-    const { object } = await generateText({
-      model: "openai/gpt-4o",
-      prompt: structuredPrompt,
-      maxOutputTokens: 1500,
-      temperature: 0.3,
-      output: "json",
-    })
-
-    const evaluation = evaluationSchema.parse(JSON.parse(object as string))
+    console.log("[v0] Generated evaluation:", evaluation)
 
     // Calculate sustainability metrics
     const totalTokens = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
-    const estimatedCO2 = (totalTokens * 0.0004).toFixed(2) // Rough estimate: 0.4mg CO2 per token
-    const estimatedCost = totalTokens * 0.00002 // Rough estimate: $0.02 per 1K tokens
+    const estimatedCO2 = (totalTokens * 0.0004).toFixed(2)
+    const estimatedCost = totalTokens * 0.00002
+
+    // Save to database
+    try {
+      await sql`
+        INSERT INTO submissions (
+          session_id, user_id, stage, prompt, goal,
+          overall_score, clarity_score, specificity_score, 
+          efficiency_score, effectiveness_score,
+          token_count, co2_grams, feedback, improved_prompt
+        ) VALUES (
+          ${activeSession[0].id}, ${userId}, ${stage}, ${prompt}, ${targetOutput},
+          ${evaluation.effectivenessScore}, ${evaluation.clarity}, ${evaluation.specificity},
+          ${evaluation.efficiency}, ${evaluation.effectivenessScore},
+          ${totalTokens}, ${Number.parseFloat(estimatedCO2)}, ${evaluation.feedback}, ${evaluation.improvedPrompt}
+        )
+      `
+      console.log("[v0] Saved evaluation to database")
+    } catch (error) {
+      console.error("[v0] Failed to save submission to database:", error)
+    }
 
     const result = {
       originalPrompt: prompt,
@@ -88,26 +135,6 @@ Return a JSON object with:
         estimatedCO2: Number.parseFloat(estimatedCO2),
         estimatedCost,
       },
-    }
-
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/submissions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          targetOutput,
-          effectivenessScore: evaluation.effectivenessScore,
-          clarity: evaluation.clarity,
-          specificity: evaluation.specificity,
-          efficiency: evaluation.efficiency,
-          tokens: totalTokens,
-          estimatedCO2: Number.parseFloat(estimatedCO2),
-        }),
-      })
-    } catch (error) {
-      console.error("[v0] Failed to save submission to analytics:", error)
-      // Don't fail the request if analytics fails
     }
 
     return Response.json(result)

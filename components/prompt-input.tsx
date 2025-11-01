@@ -1,117 +1,67 @@
 "use client"
 
 import type React from "react"
-import { useChat } from "@ai-sdk/react"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Loader2 } from "lucide-react"
-import type { EvaluationResult } from "@/app/page"
 
 type PromptInputProps = {
-  onComplete: (result: EvaluationResult) => void
-  stage: 1 | 2
+  onEvaluate: (prompt: string, targetOutput: string, userId: string) => void
+  isLoading: boolean
+  currentStage: number
 }
 
-export function PromptInput({ onComplete, stage }: PromptInputProps) {
+function generateAnonymousId(): string {
+  return `user_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`
+}
+
+export function PromptInput({ onEvaluate, isLoading, currentStage }: PromptInputProps) {
   const [prompt, setPrompt] = useState("")
   const [goal, setGoal] = useState("")
+  const [userId, setUserId] = useState("")
   const [isLoadingGoal, setIsLoadingGoal] = useState(true)
-  const [submittedPrompt, setSubmittedPrompt] = useState("")
-  const [submittedGoal, setSubmittedGoal] = useState("")
-
-  // Track grading state from tool calls
-  const [gradingState, setGradingState] = useState<{
-    effectivenessScore?: number
-    clarity?: number
-    specificity?: number
-    efficiency?: number
-    feedback?: string
-    improvements?: string[]
-    improvedPrompt?: string
-  }>({})
-
-  const { messages, sendMessage, status } = useChat({
-    api: "/api/chat",
-    body: {
-      prompt: submittedPrompt,
-      targetOutput: submittedGoal,
-    },
-    onToolCall: ({ toolCall }) => {
-      // Extract data from tool calls as they happen
-      if (toolCall.toolName === "fillClarityScore") {
-        setGradingState((prev) => ({ ...prev, clarity: toolCall.args.score }))
-      } else if (toolCall.toolName === "fillSpecificityScore") {
-        setGradingState((prev) => ({ ...prev, specificity: toolCall.args.score }))
-      } else if (toolCall.toolName === "fillEfficiencyScore") {
-        setGradingState((prev) => ({ ...prev, efficiency: toolCall.args.score }))
-      } else if (toolCall.toolName === "fillEffectivenessScore") {
-        setGradingState((prev) => ({ ...prev, effectivenessScore: toolCall.args.score }))
-      } else if (toolCall.toolName === "fillFeedback") {
-        setGradingState((prev) => ({ ...prev, feedback: toolCall.args.feedback }))
-      } else if (toolCall.toolName === "fillImprovements") {
-        setGradingState((prev) => ({ ...prev, improvements: toolCall.args.improvements }))
-      } else if (toolCall.toolName === "fillImprovedPrompt") {
-        setGradingState((prev) => ({ ...prev, improvedPrompt: toolCall.args.improvedPrompt }))
-      } else if (toolCall.toolName === "completeEvaluation") {
-        // Evaluation is complete, compile results
-        const state = toolCall.result.gradingState || gradingState
-        if (
-          state.effectivenessScore !== undefined &&
-          state.clarity !== undefined &&
-          state.specificity !== undefined &&
-          state.efficiency !== undefined &&
-          state.feedback &&
-          state.improvements &&
-          state.improvedPrompt
-        ) {
-          // Calculate approximate token usage
-          const totalContent = messages.map((m) => m.content).join(" ")
-          const estimatedTokens = Math.ceil(totalContent.length / 4)
-          const estimatedCO2 = Number.parseFloat((estimatedTokens * 0.0004).toFixed(2))
-          const estimatedCost = estimatedTokens * 0.00002
-
-          const result: EvaluationResult = {
-            originalPrompt: submittedPrompt,
-            targetOutput: submittedGoal,
-            effectivenessScore: state.effectivenessScore,
-            clarity: state.clarity,
-            specificity: state.specificity,
-            efficiency: state.efficiency,
-            energyConsumption: {
-              tokens: estimatedTokens,
-              estimatedCO2,
-              estimatedCost,
-            },
-            improvedPrompt: state.improvedPrompt,
-            feedback: state.feedback,
-            improvements: state.improvements,
-          }
-
-          onComplete(result)
-        }
-      }
-    },
-  })
+  const [sessionOpen, setSessionOpen] = useState(true)
+  const [sessionMessage, setSessionMessage] = useState("")
 
   useEffect(() => {
-    fetchGoal()
-  }, [stage]) // Refetch goal when stage changes
+    fetchActiveSession()
+    let savedUserId = localStorage.getItem("promptGraderUserId")
+    if (!savedUserId) {
+      savedUserId = generateAnonymousId()
+      localStorage.setItem("promptGraderUserId", savedUserId)
+    }
+    setUserId(savedUserId)
+  }, [currentStage])
 
-  const fetchGoal = async () => {
+  const fetchActiveSession = async () => {
     try {
-      const response = await fetch(`/api/goal?stage=${stage}`)
+      const response = await fetch("/api/sessions/active")
+
+      if (!response.ok) {
+        console.error("[v0] API returned error status:", response.status)
+        throw new Error(`API error: ${response.status}`)
+      }
+
       const data = await response.json()
-      setGoal(data.goal)
+
+      if (data.session) {
+        setGoal(currentStage === 1 ? data.session.stage1_goal : data.session.stage2_goal)
+        setSessionOpen(data.session.is_open)
+        if (!data.session.is_open) {
+          setSessionMessage("Submissions are currently closed. Please check back later.")
+        }
+      } else {
+        setSessionOpen(false)
+        setSessionMessage("No active session available. Please contact the administrator.")
+      }
     } catch (error) {
-      console.error("[v0] Error fetching goal:", error)
-      setGoal(
-        stage === 1
-          ? "Write a professional email to a client explaining a project delay"
-          : "Write a comprehensive marketing strategy for a new product launch",
-      )
+      console.error("[v0] Error fetching active session:", error)
+      setGoal("Write a professional email to a client explaining a project delay")
+      setSessionOpen(false)
+      setSessionMessage("Unable to connect to the server. Please try again later.")
     } finally {
       setIsLoadingGoal(false)
     }
@@ -119,36 +69,29 @@ export function PromptInput({ onComplete, stage }: PromptInputProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (prompt.trim() && goal) {
-      setSubmittedPrompt(prompt)
-      setSubmittedGoal(goal)
-      setGradingState({})
-      sendMessage({
-        text: "Evaluate this prompt.",
-      })
+    if (prompt.trim() && goal && sessionOpen) {
+      onEvaluate(prompt, goal, userId)
     }
   }
-
-  const isLoading = status === "in_progress"
-
-  // Show evaluation progress if we have started evaluating
-  const showProgress = isLoading || messages.length > 0
 
   return (
     <Card className="mx-auto max-w-3xl">
       <CardHeader>
-        <CardTitle>
-          {showProgress ? `Evaluating Your Stage ${stage} Prompt` : `Submit Your Stage ${stage} Prompt`}
-        </CardTitle>
+        <CardTitle>Submit Your Prompt</CardTitle>
         <CardDescription>
-          {showProgress
-            ? "The AI is analyzing your prompt and filling in the grading boxes..."
-            : "Write a prompt that will help achieve the goal below. We'll evaluate its effectiveness and provide improvement suggestions."}
+          Write a prompt that will help achieve the goal below. We'll evaluate its effectiveness and provide improvement
+          suggestions.
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {!sessionOpen && !isLoadingGoal && (
+          <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+            <p className="text-sm font-semibold text-red-600">⚠️ {sessionMessage}</p>
+          </div>
+        )}
+
         <div className="mb-6 rounded-lg border border-primary/20 bg-primary/5 p-4">
-          <p className="mb-1 text-sm font-semibold text-primary">Stage {stage} Goal:</p>
+          <p className="mb-1 text-sm font-semibold text-primary">Goal:</p>
           {isLoadingGoal ? (
             <p className="text-sm text-muted-foreground">Loading goal...</p>
           ) : (
@@ -156,100 +99,27 @@ export function PromptInput({ onComplete, stage }: PromptInputProps) {
           )}
         </div>
 
-        {showProgress ? (
-          <div className="space-y-4">
-            <div className="rounded-lg border p-4">
-              <p className="mb-1 text-sm font-semibold">Your Prompt:</p>
-              <p className="text-muted-foreground">{submittedPrompt}</p>
-            </div>
-
-            {/* Progress indicators */}
-            <div className="space-y-2 rounded-lg border p-4">
-              <div className="flex items-center gap-2 text-sm">
-                {gradingState.clarity !== undefined ? (
-                  <span className="text-green-600">✓ Clarity Score</span>
-                ) : (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                )}
-                {gradingState.clarity !== undefined && (
-                  <span className="text-muted-foreground">({gradingState.clarity})</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                {gradingState.specificity !== undefined ? (
-                  <span className="text-green-600">✓ Specificity Score</span>
-                ) : (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                )}
-                {gradingState.specificity !== undefined && (
-                  <span className="text-muted-foreground">({gradingState.specificity})</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                {gradingState.efficiency !== undefined ? (
-                  <span className="text-green-600">✓ Efficiency Score</span>
-                ) : (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                )}
-                {gradingState.efficiency !== undefined && (
-                  <span className="text-muted-foreground">({gradingState.efficiency})</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                {gradingState.effectivenessScore !== undefined ? (
-                  <span className="text-green-600">✓ Effectiveness Score</span>
-                ) : (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                )}
-                {gradingState.effectivenessScore !== undefined && (
-                  <span className="text-muted-foreground">({gradingState.effectivenessScore})</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                {gradingState.feedback ? (
-                  <span className="text-green-600">✓ Feedback</span>
-                ) : (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                {gradingState.improvements ? (
-                  <span className="text-green-600">✓ Improvements</span>
-                ) : (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                )}
-                {gradingState.improvements && (
-                  <span className="text-muted-foreground">({gradingState.improvements.length})</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                {gradingState.improvedPrompt ? (
-                  <span className="text-green-600">✓ Improved Prompt</span>
-                ) : (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                )}
-              </div>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="prompt">Your Prompt</Label>
+            <Textarea
+              id="prompt"
+              placeholder="Enter your prompt to achieve the goal above..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="min-h-32 resize-none"
+              disabled={isLoading || isLoadingGoal || !sessionOpen}
+            />
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="prompt">Your Prompt</Label>
-              <Textarea
-                id="prompt"
-                placeholder="Enter your prompt to achieve the goal above..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="min-h-32 resize-none"
-                disabled={isLoading || isLoadingGoal}
-              />
-            </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading || isLoadingGoal || !prompt.trim()}>
-              {isLoading ? "Evaluating..." : "Evaluate Prompt"}
-            </Button>
-          </form>
-        )}
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isLoading || isLoadingGoal || !prompt.trim() || !sessionOpen}
+          >
+            {isLoading ? "Evaluating..." : sessionOpen ? "Evaluate Prompt" : "Submissions Closed"}
+          </Button>
+        </form>
       </CardContent>
     </Card>
   )
