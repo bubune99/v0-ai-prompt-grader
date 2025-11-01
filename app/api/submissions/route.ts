@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
       estimatedCO2: Number.parseFloat(sub.co2_grams),
       feedback: sub.feedback,
       improvedPrompt: sub.improved_prompt,
+      userRating: sub.user_rating,
     }))
 
     return NextResponse.json({ submissions: formattedSubmissions })

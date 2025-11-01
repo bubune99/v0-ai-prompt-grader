@@ -1,4 +1,4 @@
-import { generateObject, tool } from "ai"
+import { generateObject } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 import { sql } from "@/lib/db"
@@ -15,41 +15,6 @@ const evaluationSchema = z.object({
   improvedPrompt: z.string().describe("An improved version of the prompt"),
 })
 
-const saveEvaluationTool = tool({
-  description: "Save the prompt evaluation results to the database",
-  inputSchema: z.object({
-    sessionId: z.number(),
-    userId: z.string(),
-    stage: z.number(),
-    prompt: z.string(),
-    goal: z.string(),
-    evaluation: evaluationSchema,
-    tokenCount: z.number(),
-    co2Grams: z.number(),
-  }),
-  async execute({ sessionId, userId, stage, prompt, goal, evaluation, tokenCount, co2Grams }) {
-    try {
-      await sql`
-        INSERT INTO submissions (
-          session_id, user_id, stage, prompt, goal,
-          overall_score, clarity_score, specificity_score, 
-          efficiency_score, effectiveness_score,
-          token_count, co2_grams, feedback, improved_prompt
-        ) VALUES (
-          ${sessionId}, ${userId}, ${stage}, ${prompt}, ${goal},
-          ${evaluation.effectivenessScore}, ${evaluation.clarity}, ${evaluation.specificity},
-          ${evaluation.efficiency}, ${evaluation.effectivenessScore},
-          ${tokenCount}, ${co2Grams}, ${evaluation.feedback}, ${evaluation.improvedPrompt}
-        )
-      `
-      return { success: true, message: "Evaluation saved successfully" }
-    } catch (error) {
-      console.error("[v0] Failed to save evaluation:", error)
-      return { success: false, message: "Failed to save evaluation" }
-    }
-  },
-})
-
 export async function POST(req: Request) {
   try {
     const { prompt, targetOutput, userId, stage } = await req.json()
@@ -58,6 +23,11 @@ export async function POST(req: Request) {
 
     if (!prompt || !targetOutput || !userId || !stage) {
       return Response.json({ error: "Prompt, target output, userId, and stage are required" }, { status: 400 })
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("[v0] OPENAI_API_KEY is not set")
+      return Response.json({ error: "OpenAI API key is not configured" }, { status: 500 })
     }
 
     // Check for active session
@@ -91,15 +61,36 @@ Provide:
 
 Be constructive and educational in your feedback.`
 
-    const { object: evaluation, usage } = await generateObject({
-      model: openai("gpt-4o"),
-      schema: evaluationSchema,
-      prompt: evaluationPrompt,
-      maxOutputTokens: 2000,
-      temperature: 0.7,
-    })
+    let evaluation
+    let usage
 
-    console.log("[v0] Generated evaluation:", evaluation)
+    try {
+      const result = await generateObject({
+        model: openai("gpt-4o-mini"),
+        schema: evaluationSchema,
+        prompt: evaluationPrompt,
+        mode: "json",
+      })
+
+      evaluation = result.object
+      usage = result.usage
+
+      console.log("[v0] Generated evaluation successfully")
+    } catch (aiError: any) {
+      console.error("[v0] AI SDK Error:", {
+        message: aiError.message,
+        cause: aiError.cause,
+        name: aiError.name,
+      })
+
+      return Response.json(
+        {
+          error: "Failed to generate evaluation. Please try again.",
+          details: aiError.message,
+        },
+        { status: 500 },
+      )
+    }
 
     // Calculate sustainability metrics
     const totalTokens = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
@@ -122,8 +113,8 @@ Be constructive and educational in your feedback.`
         )
       `
       console.log("[v0] Saved evaluation to database")
-    } catch (error) {
-      console.error("[v0] Failed to save submission to database:", error)
+    } catch (dbError) {
+      console.error("[v0] Failed to save submission to database:", dbError)
     }
 
     const result = {
@@ -138,8 +129,14 @@ Be constructive and educational in your feedback.`
     }
 
     return Response.json(result)
-  } catch (error) {
-    console.error("[v0] Error evaluating prompt:", error)
-    return Response.json({ error: "Failed to evaluate prompt" }, { status: 500 })
+  } catch (error: any) {
+    console.error("[v0] Error evaluating prompt:", error.message || error)
+    return Response.json(
+      {
+        error: "Failed to evaluate prompt",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

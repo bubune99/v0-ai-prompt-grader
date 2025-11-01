@@ -21,6 +21,7 @@ type Submission = {
   efficiency: number
   tokens: number
   estimatedCO2: number
+  userRating?: number | null
 }
 
 type UserProgress = {
@@ -138,6 +139,12 @@ export default function AnalyticsPage() {
     userCounter++
   })
 
+  const ratedSubmissions = submissions.filter((s) => s.userRating !== null && s.userRating !== undefined)
+  const avgUserRating =
+    ratedSubmissions.length > 0
+      ? (ratedSubmissions.reduce((sum, s) => sum + (s.userRating || 0), 0) / ratedSubmissions.length).toFixed(1)
+      : "0"
+
   return (
     <div className="min-h-screen flex flex-col">
       <AdminNav />
@@ -162,7 +169,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          <div className="mb-8 grid gap-4 md:grid-cols-5">
+          <div className="mb-8 grid gap-4 md:grid-cols-6">
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Total Submissions</CardDescription>
@@ -199,6 +206,16 @@ export default function AnalyticsPage() {
                 <CardDescription>Unique Users</CardDescription>
                 <CardTitle className="text-3xl">{userProgress.length}</CardTitle>
               </CardHeader>
+            </Card>
+
+            <Card className="border-yellow-200 bg-yellow-50">
+              <CardHeader className="pb-2">
+                <CardDescription>Avg User Rating</CardDescription>
+                <CardTitle className="text-3xl text-yellow-700">{avgUserRating} ⭐</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-xs text-slate-600">{ratedSubmissions.length} ratings</p>
+              </CardContent>
             </Card>
           </div>
 
@@ -302,7 +319,8 @@ export default function AnalyticsPage() {
                         <th className="pb-3 pr-4 text-center">Score</th>
                         <th className="pb-3 pr-4 text-center">Clarity</th>
                         <th className="pb-3 pr-4 text-center">Specificity</th>
-                        <th className="pb-3 text-center">Efficiency</th>
+                        <th className="pb-3 pr-4 text-center">Efficiency</th>
+                        <th className="pb-3 text-center">User Rating</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -338,7 +356,14 @@ export default function AnalyticsPage() {
                             </td>
                             <td className="py-3 pr-4 text-center text-slate-600">{submission.clarity}%</td>
                             <td className="py-3 pr-4 text-center text-slate-600">{submission.specificity}%</td>
-                            <td className="py-3 text-center text-slate-600">{submission.efficiency}%</td>
+                            <td className="py-3 pr-4 text-center text-slate-600">{submission.efficiency}%</td>
+                            <td className="py-3 text-center">
+                              {submission.userRating ? (
+                                <span className="text-yellow-600 font-medium">{submission.userRating} ⭐</span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                     </tbody>
