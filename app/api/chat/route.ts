@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai"
+import { anthropic } from "@ai-sdk/anthropic"
 import { streamText } from "ai"
 import { z } from "zod"
 
@@ -43,7 +43,7 @@ Your task is to:
 Be thorough and educational in your evaluation. Use all the grading tools to fill in the complete evaluation, then call completeEvaluation when done.`
 
     const result = streamText({
-      model: openai("gpt-4o"),
+      model: anthropic("claude-sonnet-4-20250514"),
       system: systemPrompt,
       prompt: `Please evaluate this prompt:
 
