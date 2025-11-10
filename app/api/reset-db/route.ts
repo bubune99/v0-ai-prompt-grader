@@ -1,0 +1,127 @@
+import { NextResponse } from "next/server"
+import { sql } from "@/lib/db"
+
+// This endpoint should only be used in development
+// Add security check for production environments
+export async function POST() {
+  // Safety check - only allow in development
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Database reset is not allowed in production",
+      },
+      { status: 403 },
+    )
+  }
+
+  try {
+    console.log("[v0] Resetting database...")
+
+    // Drop tables in correct order (respecting foreign key constraints)
+    console.log("[v0] Dropping existing tables...")
+    await sql`DROP TABLE IF EXISTS session_feedback CASCADE`
+    await sql`DROP TABLE IF EXISTS submissions CASCADE`
+    await sql`DROP TABLE IF EXISTS sessions CASCADE`
+
+    console.log("[v0] Creating sessions table...")
+    await sql`
+      CREATE TABLE sessions (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        stage1_goal TEXT NOT NULL,
+        stage1_criteria JSONB NOT NULL,
+        stage2_goal TEXT NOT NULL,
+        stage2_criteria JSONB NOT NULL,
+        is_open BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `
+
+    console.log("[v0] Creating submissions table...")
+    await sql`
+      CREATE TABLE submissions (
+        id SERIAL PRIMARY KEY,
+        session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL,
+        stage INTEGER NOT NULL CHECK (stage IN (1, 2)),
+        prompt TEXT NOT NULL,
+        goal TEXT NOT NULL,
+        overall_score INTEGER NOT NULL,
+        clarity_score INTEGER,
+        specificity_score INTEGER,
+        efficiency_score INTEGER,
+        effectiveness_score INTEGER,
+        criteria_scores JSONB NOT NULL DEFAULT '{}'::jsonb,
+        token_count INTEGER NOT NULL,
+        co2_grams DECIMAL(10, 4) NOT NULL,
+        feedback TEXT NOT NULL,
+        improved_prompt TEXT NOT NULL,
+        user_rating INTEGER CHECK (user_rating >= 1 AND user_rating <= 5),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `
+
+    console.log("[v0] Creating session_feedback table...")
+    await sql`
+      CREATE TABLE session_feedback (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `
+
+    console.log("[v0] Creating indexes...")
+    await sql`CREATE INDEX idx_sessions_is_open ON sessions(is_open)`
+    await sql`CREATE INDEX idx_submissions_session_id ON submissions(session_id)`
+    await sql`CREATE INDEX idx_submissions_user_id ON submissions(user_id)`
+    await sql`CREATE INDEX idx_submissions_stage ON submissions(stage)`
+    await sql`CREATE INDEX idx_submissions_criteria_scores ON submissions USING gin(criteria_scores)`
+    await sql`CREATE INDEX idx_sessions_stage1_criteria ON sessions USING gin(stage1_criteria)`
+    await sql`CREATE INDEX idx_sessions_stage2_criteria ON sessions USING gin(stage2_criteria)`
+    await sql`CREATE INDEX idx_session_feedback_user_id ON session_feedback(user_id)`
+
+    console.log("[v0] Seeding default session...")
+    await sql`
+      INSERT INTO sessions (name, stage1_goal, stage1_criteria, stage2_goal, stage2_criteria, is_open)
+      VALUES (
+        'Default Workshop Session',
+        'Write a prompt that generates a professional email response to a customer complaint',
+        ${JSON.stringify([
+          { name: "Professionalism", description: "Uses appropriate business language and tone" },
+          { name: "Empathy", description: "Acknowledges customer concerns and shows understanding" },
+          { name: "Actionability", description: "Provides clear next steps or solutions" },
+          { name: "Completeness", description: "Addresses all aspects of the complaint" },
+        ])},
+        'Write a prompt that generates a comprehensive marketing strategy for a new product launch',
+        ${JSON.stringify([
+          { name: "Strategic Thinking", description: "Shows clear understanding of market positioning" },
+          { name: "Audience Targeting", description: "Identifies and addresses specific customer segments" },
+          { name: "Channel Strategy", description: "Proposes appropriate marketing channels and tactics" },
+          { name: "Measurability", description: "Includes metrics and KPIs for success tracking" },
+        ])},
+        true
+      )
+    `
+
+    console.log("[v0] Database reset complete!")
+
+    return NextResponse.json({
+      success: true,
+      message: "Database reset and seeded successfully",
+    })
+  } catch (error: any) {
+    console.error("[v0] Database reset error:", error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Database reset failed",
+        details: error.message,
+      },
+      { status: 500 },
+    )
+  }
+}

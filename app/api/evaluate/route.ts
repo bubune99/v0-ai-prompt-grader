@@ -84,7 +84,7 @@ Be constructive and educational in your feedback.`
       const evaluationSchema = createEvaluationSchema(criteria.map((c) => c.name))
 
       const result = await generateObject({
-        model: anthropic("claude-sonnet-4"),
+        model: anthropic("claude-sonnet-4-20250514"),
         schema: evaluationSchema,
         prompt: evaluationPrompt,
       })
@@ -116,14 +116,24 @@ Be constructive and educational in your feedback.`
     const estimatedCost = totalTokens * 0.00002
 
     try {
+      // Extract static criteria scores for backward compatibility
+      const criteriaScoresObj = evaluation.criteriaScores
+      const clarityScore = criteriaScoresObj.Clarity || criteriaScoresObj.Professionalism || null
+      const specificityScore = criteriaScoresObj.Specificity || criteriaScoresObj.Empathy || null
+      const efficiencyScore = criteriaScoresObj.Efficiency || criteriaScoresObj.Actionability || null
+      const effectivenessScore = criteriaScoresObj.Effectiveness || criteriaScoresObj.Completeness ||
+                                 criteriaScoresObj['Strategic Thinking'] || null
+
       await sql`
         INSERT INTO submissions (
           session_id, user_id, stage, prompt, goal,
           overall_score, criteria_scores,
+          clarity_score, specificity_score, efficiency_score, effectiveness_score,
           token_count, co2_grams, feedback, improved_prompt
         ) VALUES (
           ${activeSession[0].id}, ${userId}, ${stage}, ${prompt}, ${targetOutput},
           ${evaluation.effectivenessScore}, ${JSON.stringify(evaluation.criteriaScores)},
+          ${clarityScore}, ${specificityScore}, ${efficiencyScore}, ${effectivenessScore},
           ${totalTokens}, ${Number.parseFloat(estimatedCO2)}, ${evaluation.feedback}, ${evaluation.improvedPrompt}
         )
       `

@@ -10,9 +10,12 @@ export type EvaluationResult = {
   originalPrompt: string
   targetOutput: string
   effectivenessScore: number
-  clarity: number
-  specificity: number
-  efficiency: number
+  criteriaScores: Record<string, number>
+  criteria?: Array<{ name: string; description: string }>
+  // Legacy fields for backward compatibility
+  clarity?: number
+  specificity?: number
+  efficiency?: number
   energyConsumption: {
     tokens: number
     estimatedCO2: number

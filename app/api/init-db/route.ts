@@ -23,20 +23,22 @@ export async function POST() {
     await sql`
       CREATE TABLE IF NOT EXISTS submissions (
         id SERIAL PRIMARY KEY,
-        session_id INTEGER REFERENCES sessions(id),
+        session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
         user_id TEXT NOT NULL,
-        stage INTEGER NOT NULL,
+        stage INTEGER NOT NULL CHECK (stage IN (1, 2)),
         prompt TEXT NOT NULL,
         goal TEXT NOT NULL,
-        clarity_score INTEGER NOT NULL,
-        specificity_score INTEGER NOT NULL,
-        efficiency_score INTEGER NOT NULL,
         overall_score INTEGER NOT NULL,
+        clarity_score INTEGER,
+        specificity_score INTEGER,
+        efficiency_score INTEGER,
+        effectiveness_score INTEGER,
+        criteria_scores JSONB NOT NULL DEFAULT '{}'::jsonb,
+        token_count INTEGER NOT NULL,
+        co2_grams DECIMAL(10, 4) NOT NULL,
         feedback TEXT NOT NULL,
         improved_prompt TEXT NOT NULL,
-        tokens_used INTEGER NOT NULL,
-        co2_grams REAL NOT NULL,
-        cost_usd REAL NOT NULL,
+        user_rating INTEGER CHECK (user_rating >= 1 AND user_rating <= 5),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
@@ -50,6 +52,18 @@ export async function POST() {
     `
     await sql`
       CREATE INDEX IF NOT EXISTS idx_submissions_user_id ON submissions(user_id)
+    `
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_submissions_stage ON submissions(stage)
+    `
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_submissions_criteria_scores ON submissions USING gin(criteria_scores)
+    `
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_sessions_stage1_criteria ON sessions USING gin(stage1_criteria)
+    `
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_sessions_stage2_criteria ON sessions USING gin(stage2_criteria)
     `
 
     await sql`

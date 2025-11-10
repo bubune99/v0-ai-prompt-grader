@@ -136,29 +136,18 @@ export function ResultsDashboard({
               <div className="mb-2 text-3xl text-muted-foreground">/100</div>
             </div>
 
-            {/* Score Breakdown */}
+            {/* Score Breakdown - Dynamic Criteria */}
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Clarity</span>
-                  <span className="font-semibold">{result.clarity}/100</span>
-                </div>
-                <Progress value={result.clarity} />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Specificity</span>
-                  <span className="font-semibold">{result.specificity}/100</span>
-                </div>
-                <Progress value={result.specificity} />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Efficiency</span>
-                  <span className="font-semibold">{result.efficiency}/100</span>
-                </div>
-                <Progress value={result.efficiency} />
-              </div>
+              {result.criteriaScores &&
+                Object.entries(result.criteriaScores).map(([criterionName, score]) => (
+                  <div key={criterionName} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{criterionName}</span>
+                      <span className="font-semibold">{score}/100</span>
+                    </div>
+                    <Progress value={score} />
+                  </div>
+                ))}
             </div>
 
             {/* Sustainability Metrics */}
