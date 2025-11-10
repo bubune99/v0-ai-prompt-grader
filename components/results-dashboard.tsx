@@ -83,6 +83,9 @@ export function ResultsDashboard({
 
   const showOverallPerformance = currentStage === 2 && stage1Result
 
+  const sustainabilityScore = result.criteriaScores?.Sustainability
+  const hasSustainabilityScore = sustainabilityScore !== undefined
+
   return (
     <div className="space-y-6">
       <Card className="border-2 border-primary/20">
@@ -136,42 +139,58 @@ export function ResultsDashboard({
               <div className="mb-2 text-3xl text-muted-foreground">/100</div>
             </div>
 
-            {/* Score Breakdown - Dynamic Criteria */}
             <div className="grid gap-4 md:grid-cols-3">
               {result.criteriaScores &&
-                Object.entries(result.criteriaScores).map(([criterionName, score]) => (
-                  <div key={criterionName} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{criterionName}</span>
-                      <span className="font-semibold">{score}/100</span>
+                Object.entries(result.criteriaScores).map(([criterionName, score]) => {
+                  const isSustainability = criterionName === "Sustainability"
+                  return (
+                    <div
+                      key={criterionName}
+                      className={`space-y-2 ${isSustainability ? "md:col-span-3 rounded-lg bg-chart-3/10 p-3 border border-chart-3/30" : ""}`}
+                    >
+                      <div className="flex items-center justify-between text-sm">
+                        <span
+                          className={`${isSustainability ? "font-semibold text-foreground flex items-center gap-2" : "text-muted-foreground"}`}
+                        >
+                          {isSustainability && <span className="text-base">🌱</span>}
+                          {criterionName}
+                        </span>
+                        <span className="font-semibold">{score}/100</span>
+                      </div>
+                      <Progress value={score} className={isSustainability ? "h-3" : ""} />
                     </div>
-                    <Progress value={score} />
-                  </div>
-                ))}
+                  )
+                })}
             </div>
 
-            {/* Sustainability Metrics */}
             <div className="border-t pt-4">
-              <div className="mb-3 text-sm font-medium text-muted-foreground">Sustainability Metrics</div>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-sm font-medium text-muted-foreground">Resource Usage Metrics</div>
+                {hasSustainabilityScore && (
+                  <Badge variant="outline" className="gap-1">
+                    🌱 AI Sustainability Score: {sustainabilityScore}/100
+                  </Badge>
+                )}
+              </div>
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">⚡</span>
                   <div>
-                    <div className="text-xs text-muted-foreground">Tokens</div>
+                    <div className="text-xs text-muted-foreground">Tokens Used</div>
                     <div className="font-semibold">{result.energyConsumption.tokens.toLocaleString()}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🌱</span>
                   <div>
-                    <div className="text-xs text-muted-foreground">CO₂</div>
+                    <div className="text-xs text-muted-foreground">Est. CO₂</div>
                     <div className="font-semibold">{result.energyConsumption.estimatedCO2}g</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-lg">💰</span>
                   <div>
-                    <div className="text-xs text-muted-foreground">Cost</div>
+                    <div className="text-xs text-muted-foreground">Est. Cost</div>
                     <div className="font-semibold">${result.energyConsumption.estimatedCost.toFixed(4)}</div>
                   </div>
                 </div>

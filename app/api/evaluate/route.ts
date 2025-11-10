@@ -67,6 +67,22 @@ ${criteriaText}
 
 For each criterion, carefully analyze how well the user's prompt would enable an AI to achieve that specific aspect of the goal.
 
+${
+  criteria.some((c: any) => c.name.toLowerCase().includes("sustainability"))
+    ? `
+SUSTAINABILITY EVALUATION GUIDANCE:
+When evaluating SUSTAINABILITY, consider:
+- Token Efficiency: Does the prompt request only necessary information without redundancy?
+- Clarity vs. Verbosity: Is it concise yet clear, avoiding over-specification?
+- Resource Optimization: Does it structure requests to minimize API calls and token usage?
+- Output Scope: Does it avoid requesting unnecessarily long or detailed responses?
+- Reusability: Could this prompt pattern be reused efficiently for similar tasks?
+
+Score higher for prompts that achieve their goals with minimal resource consumption while maintaining effectiveness.
+`
+    : ""
+}
+
 Calculate an OVERALL EFFECTIVENESS SCORE (0-100) as a weighted average of the criteria scores.
 
 Provide:
@@ -120,9 +136,13 @@ Be constructive and educational in your feedback.`
       const criteriaScoresObj = evaluation.criteriaScores
       const clarityScore = criteriaScoresObj.Clarity || criteriaScoresObj.Professionalism || null
       const specificityScore = criteriaScoresObj.Specificity || criteriaScoresObj.Empathy || null
-      const efficiencyScore = criteriaScoresObj.Efficiency || criteriaScoresObj.Actionability || null
-      const effectivenessScore = criteriaScoresObj.Effectiveness || criteriaScoresObj.Completeness ||
-                                 criteriaScoresObj['Strategic Thinking'] || null
+      const efficiencyScore =
+        criteriaScoresObj.Efficiency || criteriaScoresObj.Actionability || criteriaScoresObj.Sustainability || null
+      const effectivenessScore =
+        criteriaScoresObj.Effectiveness ||
+        criteriaScoresObj.Completeness ||
+        criteriaScoresObj["Strategic Thinking"] ||
+        null
 
       await sql`
         INSERT INTO submissions (

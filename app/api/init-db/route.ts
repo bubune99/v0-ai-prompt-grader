@@ -98,6 +98,10 @@ export async function POST() {
             { name: "Empathy", description: "Acknowledges customer concerns and shows understanding" },
             { name: "Actionability", description: "Provides clear next steps or solutions" },
             { name: "Completeness", description: "Addresses all aspects of the complaint" },
+            {
+              name: "Sustainability",
+              description: "Efficiently uses resources and minimizes token consumption while maintaining effectiveness",
+            },
           ])},
           'Write a prompt that generates a comprehensive marketing strategy for a new product launch',
           ${JSON.stringify([
@@ -105,6 +109,10 @@ export async function POST() {
             { name: "Audience Targeting", description: "Identifies and addresses specific customer segments" },
             { name: "Channel Strategy", description: "Proposes appropriate marketing channels and tactics" },
             { name: "Measurability", description: "Includes metrics and KPIs for success tracking" },
+            {
+              name: "Sustainability",
+              description: "Optimizes resource usage and token efficiency without compromising quality or completeness",
+            },
           ])},
           true
         )
