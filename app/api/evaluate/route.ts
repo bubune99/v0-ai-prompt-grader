@@ -5,24 +5,36 @@ import { sql } from "@/lib/db"
 
 export const maxDuration = 30
 
-const evaluationSchema = z.object({
-  effectivenessScore: z.number().min(0).max(100).describe("Overall effectiveness of the prompt in achieving the goal"),
-  clarity: z.number().min(0).max(100).describe("How clear and unambiguous the prompt is"),
-  specificity: z.number().min(0).max(100).describe("How specific and detailed the prompt is"),
-  efficiency: z.number().min(0).max(100).describe("How concise yet complete the prompt is"),
-  feedback: z.string().describe("Detailed feedback explaining strengths and weaknesses"),
-  improvements: z.array(z.string()).describe("3-5 specific improvements that could be made"),
-  improvedPrompt: z.string().describe("An improved version of the prompt"),
-})
+const createEvaluationSchema = (criteriaNames: string[]) => {
+  const criteriaScores: Record<string, any> = {}
+  criteriaNames.forEach((name) => {
+    criteriaScores[name] = z.number().min(0).max(100).describe(`Score for ${name} (0-100)`)
+  })
+
+  return z.object({
+    effectivenessScore: z
+      .number()
+      .min(0)
+      .max(100)
+      .describe("Overall effectiveness of the prompt in achieving the goal"),
+    criteriaScores: z.object(criteriaScores),
+    feedback: z.string().describe("Detailed feedback explaining strengths and weaknesses"),
+    improvements: z.array(z.string()).describe("3-5 specific improvements that could be made"),
+    improvedPrompt: z.string().describe("An improved version of the prompt"),
+  })
+}
 
 export async function POST(req: Request) {
   try {
-    const { prompt, targetOutput, userId, stage } = await req.json()
+    const { prompt, targetOutput, userId, stage, criteria } = await req.json()
 
-    console.log("[v0] Evaluating prompt:", { prompt, targetOutput, userId, stage })
+    console.log("[v0] Evaluating prompt:", { prompt, targetOutput, userId, stage, criteria })
 
-    if (!prompt || !targetOutput || !userId || !stage) {
-      return Response.json({ error: "Prompt, target output, userId, and stage are required" }, { status: 400 })
+    if (!prompt || !targetOutput || !userId || !stage || !criteria) {
+      return Response.json(
+        { error: "Prompt, target output, userId, stage, and criteria are required" },
+        { status: 400 },
+      )
     }
 
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -30,7 +42,6 @@ export async function POST(req: Request) {
       return Response.json({ error: "Anthropic API key is not configured" }, { status: 500 })
     }
 
-    // Check for active session
     const activeSession = await sql`
       SELECT id, is_open FROM sessions WHERE is_open = true ORDER BY created_at DESC LIMIT 1
     `
@@ -38,6 +49,10 @@ export async function POST(req: Request) {
     if (activeSession.length === 0 || !activeSession[0].is_open) {
       return Response.json({ error: "No active session. Submissions are currently closed." }, { status: 403 })
     }
+
+    const criteriaText = criteria
+      .map((c: any, i: number) => `${i + 1}. ${c.name.toUpperCase()}: ${c.description}`)
+      .join("\n")
 
     const evaluationPrompt = `You are an expert prompt engineer. Evaluate the following prompt based on how well it would achieve the specified goal.
 
@@ -47,16 +62,17 @@ USER'S PROMPT:
 GOAL TO ACHIEVE:
 "${targetOutput}"
 
-Evaluate the prompt on these criteria (0-100 scale):
-1. CLARITY: How clear and unambiguous is the prompt?
-2. SPECIFICITY: How specific and detailed is the prompt for achieving the goal?
-3. EFFICIENCY: How concise yet complete is the prompt?
+EVALUATION CRITERIA (rate each 0-100):
+${criteriaText}
 
-Calculate an OVERALL EFFECTIVENESS SCORE (0-100) as a weighted average, focusing on how well this prompt would help an AI achieve the stated goal.
+For each criterion, carefully analyze how well the user's prompt would enable an AI to achieve that specific aspect of the goal.
+
+Calculate an OVERALL EFFECTIVENESS SCORE (0-100) as a weighted average of the criteria scores.
 
 Provide:
-- Detailed feedback explaining strengths and weaknesses in relation to the goal
-- 3-5 specific improvements that could be made to better achieve the goal
+- A score for EACH criterion listed above
+- Detailed feedback explaining strengths and weaknesses relative to each criterion
+- 3-5 specific improvements that could be made to better meet the criteria
 - An improved version of the prompt that would more effectively achieve the goal
 
 Be constructive and educational in your feedback.`
@@ -65,8 +81,10 @@ Be constructive and educational in your feedback.`
     let usage
 
     try {
+      const evaluationSchema = createEvaluationSchema(criteria.map((c) => c.name))
+
       const result = await generateObject({
-        model: anthropic("claude-sonnet-4-20250514"),
+        model: anthropic("claude-sonnet-4"),
         schema: evaluationSchema,
         prompt: evaluationPrompt,
       })
@@ -80,6 +98,7 @@ Be constructive and educational in your feedback.`
         message: aiError.message,
         cause: aiError.cause,
         name: aiError.name,
+        stack: aiError.stack,
       })
 
       return Response.json(
@@ -96,18 +115,15 @@ Be constructive and educational in your feedback.`
     const estimatedCO2 = (totalTokens * 0.0004).toFixed(2)
     const estimatedCost = totalTokens * 0.00002
 
-    // Save to database
     try {
       await sql`
         INSERT INTO submissions (
           session_id, user_id, stage, prompt, goal,
-          overall_score, clarity_score, specificity_score, 
-          efficiency_score, effectiveness_score,
+          overall_score, criteria_scores,
           token_count, co2_grams, feedback, improved_prompt
         ) VALUES (
           ${activeSession[0].id}, ${userId}, ${stage}, ${prompt}, ${targetOutput},
-          ${evaluation.effectivenessScore}, ${evaluation.clarity}, ${evaluation.specificity},
-          ${evaluation.efficiency}, ${evaluation.effectivenessScore},
+          ${evaluation.effectivenessScore}, ${JSON.stringify(evaluation.criteriaScores)},
           ${totalTokens}, ${Number.parseFloat(estimatedCO2)}, ${evaluation.feedback}, ${evaluation.improvedPrompt}
         )
       `
@@ -119,6 +135,7 @@ Be constructive and educational in your feedback.`
     const result = {
       originalPrompt: prompt,
       targetOutput,
+      criteria,
       ...evaluation,
       energyConsumption: {
         tokens: totalTokens,

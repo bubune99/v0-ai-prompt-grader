@@ -1,24 +1,54 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { SessionFeedback } from "@/components/session-feedback"
+import { Loader2 } from "lucide-react"
 import type { EvaluationResult } from "@/app/page"
 
 type ResultsDashboardProps = {
-  result: EvaluationResult
-  onReset: () => void
+  result: EvaluationResult | null
   currentStage: number
+  stage1Result?: EvaluationResult | null
+  onReset?: () => void
   onNextStage?: () => void
+  isLoading?: boolean
 }
 
-export function ResultsDashboard({ result, onReset, currentStage, onNextStage }: ResultsDashboardProps) {
+export function ResultsDashboard({
+  result,
+  currentStage,
+  stage1Result,
+  onReset,
+  onNextStage,
+  isLoading = false,
+}: ResultsDashboardProps) {
   const [userRating, setUserRating] = useState<number | null>(null)
   const [hasRated, setHasRated] = useState(false)
-  const [showSessionFeedback, setShowSessionFeedback] = useState(false)
+
+  if (isLoading || !result) {
+    return (
+      <Card className="mx-auto max-w-3xl border-2 border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-2xl">Evaluating Your Prompt...</CardTitle>
+          <CardDescription>Our AI is analyzing your prompt. This may take a few moments.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col items-center justify-center py-12 gap-6">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+            <div className="text-center space-y-2">
+              <p className="text-lg font-medium text-foreground">Analysis in progress</p>
+              <p className="text-sm text-muted-foreground">
+                We're evaluating clarity, specificity, efficiency, and sustainability...
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-accent"
@@ -51,29 +81,7 @@ export function ResultsDashboard({ result, onReset, currentStage, onNextStage }:
     }
   }
 
-  useEffect(() => {
-    if (currentStage === 2 && hasRated) {
-      setShowSessionFeedback(true)
-    }
-  }, [currentStage, hasRated])
-
-  const handleSessionFeedbackComplete = () => {
-    setShowSessionFeedback(false)
-  }
-
-  if (showSessionFeedback) {
-    return (
-      <div className="space-y-6">
-        <SessionFeedback onSubmit={handleSessionFeedbackComplete} />
-        <div className="flex justify-center pt-4">
-          <Button onClick={onReset} size="lg" variant="outline" className="gap-2 bg-transparent">
-            <span>↻</span>
-            Start New Session
-          </Button>
-        </div>
-      </div>
-    )
-  }
+  const showOverallPerformance = currentStage === 2 && stage1Result
 
   return (
     <div className="space-y-6">
@@ -81,7 +89,7 @@ export function ResultsDashboard({ result, onReset, currentStage, onNextStage }:
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <span className="text-xl">📝</span>
-            Your Prompt
+            Your Prompt - Stage {currentStage}
           </CardTitle>
           <CardDescription>The prompt you submitted for evaluation</CardDescription>
         </CardHeader>
@@ -111,7 +119,7 @@ export function ResultsDashboard({ result, onReset, currentStage, onNextStage }:
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="text-2xl">Your Grade</CardTitle>
+              <CardTitle className="text-2xl">Stage {currentStage} Grade</CardTitle>
               <CardDescription>Overall effectiveness score</CardDescription>
             </div>
             <Badge variant="secondary" className="text-lg px-4 py-2">
@@ -183,6 +191,66 @@ export function ResultsDashboard({ result, onReset, currentStage, onNextStage }:
           </div>
         </CardContent>
       </Card>
+
+      {showOverallPerformance && stage1Result && (
+        <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
+          <CardHeader>
+            <CardTitle className="text-2xl">Overall Session Performance</CardTitle>
+            <CardDescription>Your performance across both stages</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Stage 1 Summary */}
+              <div className="rounded-lg border-2 bg-background p-4">
+                <h4 className="mb-2 font-semibold text-sm text-muted-foreground">Stage 1</h4>
+                <div className="text-4xl font-bold text-primary mb-3">{stage1Result.effectivenessScore}</div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Clarity:</span>
+                    <span className="font-medium">{stage1Result.clarity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Specificity:</span>
+                    <span className="font-medium">{stage1Result.specificity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Efficiency:</span>
+                    <span className="font-medium">{stage1Result.efficiency}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stage 2 Summary */}
+              <div className="rounded-lg border-2 bg-background p-4">
+                <h4 className="mb-2 font-semibold text-sm text-muted-foreground">Stage 2</h4>
+                <div className="text-4xl font-bold text-primary mb-3">{result.effectivenessScore}</div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Clarity:</span>
+                    <span className="font-medium">{result.clarity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Specificity:</span>
+                    <span className="font-medium">{result.specificity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Efficiency:</span>
+                    <span className="font-medium">{result.efficiency}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Average Score */}
+            <div className="text-center rounded-lg border-2 bg-background p-6">
+              <p className="text-sm text-muted-foreground mb-2">Average Score</p>
+              <div className="text-5xl font-bold text-primary">
+                {Math.round((stage1Result.effectivenessScore + result.effectivenessScore) / 2)}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-2 border-chart-3/20">
         <CardHeader>
@@ -260,18 +328,22 @@ export function ResultsDashboard({ result, onReset, currentStage, onNextStage }:
         </CardContent>
       </Card>
 
-      <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-center">
-        <Button onClick={onReset} size="lg" variant="outline" className="gap-2 bg-transparent">
-          <span>↻</span>
-          Try Another Prompt
-        </Button>
-        {onNextStage && currentStage === 1 && (
-          <Button onClick={onNextStage} size="lg" className="gap-2">
-            <span>→</span>
-            Continue to Stage 2
+      {onNextStage && (
+        <div className="flex justify-center pt-4">
+          <Button onClick={onNextStage} size="lg" className="gap-2 min-w-64">
+            {currentStage === 1 ? (
+              <>
+                Continue to Stage 2<span>→</span>
+              </>
+            ) : (
+              <>
+                Continue to Feedback
+                <span>→</span>
+              </>
+            )}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

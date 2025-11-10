@@ -11,7 +11,9 @@ export async function POST() {
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         stage1_goal TEXT NOT NULL,
+        stage1_criteria JSONB NOT NULL,
         stage2_goal TEXT NOT NULL,
+        stage2_criteria JSONB NOT NULL,
         is_open BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -73,11 +75,23 @@ export async function POST() {
       console.log("[v0] Creating default session...")
 
       await sql`
-        INSERT INTO sessions (name, stage1_goal, stage2_goal, is_open)
+        INSERT INTO sessions (name, stage1_goal, stage1_criteria, stage2_goal, stage2_criteria, is_open)
         VALUES (
           'Default Workshop Session',
           'Write a prompt that generates a professional email response to a customer complaint',
+          ${JSON.stringify([
+            { name: "Professionalism", description: "Uses appropriate business language and tone" },
+            { name: "Empathy", description: "Acknowledges customer concerns and shows understanding" },
+            { name: "Actionability", description: "Provides clear next steps or solutions" },
+            { name: "Completeness", description: "Addresses all aspects of the complaint" },
+          ])},
           'Write a prompt that generates a comprehensive marketing strategy for a new product launch',
+          ${JSON.stringify([
+            { name: "Strategic Thinking", description: "Shows clear understanding of market positioning" },
+            { name: "Audience Targeting", description: "Identifies and addresses specific customer segments" },
+            { name: "Channel Strategy", description: "Proposes appropriate marketing channels and tactics" },
+            { name: "Measurability", description: "Includes metrics and KPIs for success tracking" },
+          ])},
           true
         )
       `

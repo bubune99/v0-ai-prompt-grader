@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { PromptInput } from "@/components/prompt-input"
 import { ResultsDashboard } from "@/components/results-dashboard"
+import { SessionFeedback } from "@/components/session-feedback"
 import { Footer } from "@/components/footer"
 
 export type EvaluationResult = {
@@ -22,27 +23,53 @@ export type EvaluationResult = {
   improvements: string[]
 }
 
+type WizardStep = 1 | 2 | 3 | 4 | 5
+
 export default function Home() {
-  const [result, setResult] = useState<EvaluationResult | null>(null)
-  const [currentStage, setCurrentStage] = useState(1)
+  const [currentStep, setCurrentStep] = useState<WizardStep>(1)
+  const [stage1Result, setStage1Result] = useState<EvaluationResult | null>(null)
+  const [stage2Result, setStage2Result] = useState<EvaluationResult | null>(null)
+  const [isLoadingStage1, setIsLoadingStage1] = useState(false)
+  const [isLoadingStage2, setIsLoadingStage2] = useState(false)
 
-  const handleReset = () => {
-    console.log("[v0] Resetting to prompt input view")
-    setResult(null)
+  const handleStage1Complete = (evaluationResult: EvaluationResult | null) => {
+    if (evaluationResult === null) {
+      console.log("[v0] Stage 1 starting evaluation, showing loading state")
+      setIsLoadingStage1(true)
+      setCurrentStep(2)
+    } else {
+      console.log("[v0] Stage 1 evaluation complete, showing results")
+      setStage1Result(evaluationResult)
+      setIsLoadingStage1(false)
+    }
   }
 
-  const handleNextStage = () => {
-    console.log("[v0] Moving to stage 2")
-    setCurrentStage(2)
-    setResult(null)
+  const handleContinueToStage2 = () => {
+    console.log("[v0] Continuing to Stage 2 input")
+    setCurrentStep(3)
   }
 
-  const handleComplete = (evaluationResult: EvaluationResult) => {
-    console.log("[v0] Evaluation complete, switching to results view")
-    setResult(evaluationResult)
+  const handleStage2Complete = (evaluationResult: EvaluationResult | null) => {
+    if (evaluationResult === null) {
+      console.log("[v0] Stage 2 starting evaluation, showing loading state")
+      setIsLoadingStage2(true)
+      setCurrentStep(4)
+    } else {
+      console.log("[v0] Stage 2 evaluation complete, showing results")
+      setStage2Result(evaluationResult)
+      setIsLoadingStage2(false)
+    }
   }
 
-  console.log("[v0] Current view:", result ? "Results Dashboard" : "Prompt Input")
+  const handleContinueToFeedback = () => {
+    console.log("[v0] Continuing to feedback form")
+    setCurrentStep(5)
+  }
+
+  const handleFeedbackComplete = () => {
+    console.log("[v0] Session complete!")
+    // Could redirect to thank you page or reset
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -56,22 +83,45 @@ export default function Home() {
               Evaluate your prompts for effectiveness, efficiency, and sustainability. Get AI-powered feedback and
               improvements.
             </p>
+            {currentStep <= 4 && (
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <div className={`h-2 w-16 rounded-full ${currentStep >= 1 ? "bg-primary" : "bg-muted"}`} />
+                <div className={`h-2 w-16 rounded-full ${currentStep >= 2 ? "bg-primary" : "bg-muted"}`} />
+                <div className={`h-2 w-16 rounded-full ${currentStep >= 3 ? "bg-primary" : "bg-muted"}`} />
+                <div className={`h-2 w-16 rounded-full ${currentStep >= 4 ? "bg-primary" : "bg-muted"}`} />
+              </div>
+            )}
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2">
-              <span className="text-sm font-semibold text-primary">Stage {currentStage}</span>
-              {currentStage === 2 && <span className="text-xs text-muted-foreground">(Post-Workshop)</span>}
+              <span className="text-sm font-semibold text-primary">
+                {currentStep <= 2 ? "Stage 1" : currentStep <= 4 ? "Stage 2" : "Complete"}
+              </span>
             </div>
           </div>
 
-          {!result ? (
-            <PromptInput onComplete={handleComplete} currentStage={currentStage} />
-          ) : (
+          {currentStep === 1 && <PromptInput onComplete={handleStage1Complete} currentStage={1} />}
+
+          {currentStep === 2 && (
             <ResultsDashboard
-              result={result}
-              onReset={handleReset}
-              currentStage={currentStage}
-              onNextStage={currentStage === 1 ? handleNextStage : undefined}
+              result={stage1Result}
+              currentStage={1}
+              onNextStage={handleContinueToStage2}
+              isLoading={isLoadingStage1}
             />
           )}
+
+          {currentStep === 3 && <PromptInput onComplete={handleStage2Complete} currentStage={2} />}
+
+          {currentStep === 4 && (
+            <ResultsDashboard
+              result={stage2Result}
+              currentStage={2}
+              stage1Result={stage1Result}
+              onNextStage={handleContinueToFeedback}
+              isLoading={isLoadingStage2}
+            />
+          )}
+
+          {currentStep === 5 && <SessionFeedback onComplete={handleFeedbackComplete} />}
         </div>
       </main>
       <Footer />
