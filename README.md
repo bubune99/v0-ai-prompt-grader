@@ -36,33 +36,33 @@ An interactive AI-powered prompt evaluation tool that helps users craft better p
 ### Installation
 
 1. **Clone the repository**
-   ```bash
+   \`\`\`bash
    git clone https://github.com/your-username/v0-ai-prompt-grader.git
    cd v0-ai-prompt-grader
-   ```
+   \`\`\`
 
 2. **Install dependencies**
-   ```bash
+   \`\`\`bash
    npm install
    # or
    pnpm install
-   ```
+   \`\`\`
 
 3. **Set up environment variables**
-   ```bash
+   \`\`\`bash
    cp .env.example .env.local
-   ```
+   \`\`\`
 
    Edit `.env.local` and add your credentials:
-   ```env
+   \`\`\`env
    ANTHROPIC_API_KEY=sk-ant-api03-your_key_here
    NEON_DATABASE_URL=postgresql://user:pass@host.region.aws.neon.tech/dbname?sslmode=require
-   ```
+   \`\`\`
 
 4. **Initialize the database**
-   ```bash
+   \`\`\`bash
    npm run dev
-   ```
+   \`\`\`
 
    Then visit these endpoints to set up your database:
    - [http://localhost:3000/api/init-db](http://localhost:3000/api/init-db) - Creates tables and seeds default session
@@ -99,15 +99,15 @@ An interactive AI-powered prompt evaluation tool that helps users craft better p
 The application supports dynamic evaluation criteria stored as JSONB:
 
 **Sessions Table**
-```sql
+\`\`\`sql
 stage1_criteria JSONB  -- Array of {name, description} objects
 stage2_criteria JSONB  -- Array of {name, description} objects
-```
+\`\`\`
 
 **Submissions Table**
-```sql
+\`\`\`sql
 criteria_scores JSONB  -- Object mapping criterion names to scores (0-100)
-```
+\`\`\`
 
 This allows flexible criteria per session without schema changes.
 
@@ -117,21 +117,21 @@ This allows flexible criteria per session without schema changes.
 
 If you've made database schema changes:
 
-```bash
+\`\`\`bash
 # Via API
 curl -X POST http://localhost:3000/api/migrate
 
 # Or run SQL directly
 psql $NEON_DATABASE_URL < scripts/003_add_dynamic_criteria.sql
-```
+\`\`\`
 
 ### Health Check
 
 Monitor your application health:
 
-```bash
+\`\`\`bash
 curl http://localhost:3000/api/health
-```
+\`\`\`
 
 Returns:
 - Database connectivity status
@@ -143,9 +143,9 @@ Returns:
 
 To start fresh in development:
 
-```bash
+\`\`\`bash
 curl -X POST http://localhost:3000/api/reset-db
-```
+\`\`\`
 
 **⚠️ Warning**: This drops all tables and data!
 
